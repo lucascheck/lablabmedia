@@ -1,5 +1,6 @@
+import * as React from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Instagram, Wand2, LogOut, MessageCircle, Flame, Newspaper, FileImage, Quote, Shield, LayoutTemplate, FileEdit, FolderOpen, Copy, KanbanSquare, SplitSquareVertical, Sparkles } from "lucide-react";
+import { Home, Instagram, Wand2, LogOut, MessageCircle, Flame, Newspaper, FileImage, Quote, Shield, LayoutTemplate, FileEdit, FolderOpen, Copy, KanbanSquare, SplitSquareVertical, Sparkles, ChevronDown } from "lucide-react";
 import { useProfile } from "@/lib/use-profile";
 import {
   Sidebar,
@@ -14,6 +15,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 
@@ -56,12 +58,28 @@ const toolGroups = [
   },
 ];
 
+function isItemActive(pathname: string, url: string) {
+  return pathname === url || pathname.startsWith(`${url}/`);
+}
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      toolGroups.map((group) => [
+        group.label,
+        group.items.some((item) => isItemActive(pathname, item.url)),
+      ]),
+    ),
+  );
+
+  const toggleGroup = (label: string) =>
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
 
   return (
     <Sidebar collapsible="icon">
@@ -80,7 +98,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => {
-                const active = pathname === item.url;
+                const active = isItemActive(pathname, item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
@@ -96,28 +114,53 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {toolGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const active = pathname === item.url || pathname.startsWith(`${item.url}/`);
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-                        <Link to={item.url} className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {toolGroups.map((group) => {
+          const items = group.items.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton
+                asChild
+                isActive={isItemActive(pathname, item.url)}
+                tooltip={item.title}
+              >
+                <Link to={item.url} className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4" />
+                  {!collapsed && <span>{item.title}</span>}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ));
+
+          if (collapsed) {
+            return (
+              <SidebarGroup key={group.label}>
+                <SidebarGroupContent>
+                  <SidebarMenu>{items}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            );
+          }
+
+          const isOpen = openGroups[group.label] ?? false;
+          return (
+            <SidebarGroup key={group.label}>
+              <Collapsible open={isOpen} onOpenChange={() => toggleGroup(group.label)}>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className="cursor-pointer justify-between hover:bg-sidebar-accent">
+                    {group.label}
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    />
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>{items}</SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </SidebarGroup>
+          );
+        })}
 
         {profile?.isAdmin && (
           <SidebarGroup>

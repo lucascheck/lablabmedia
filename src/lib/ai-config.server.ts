@@ -53,10 +53,16 @@ export async function writeGeminiApiKey(apiKey: string): Promise<void> {
 export async function getAuthedClient(
   accessToken: string | undefined | null,
 ): Promise<{ supabase: SupabaseClient<Database>; userId: string } | null> {
-  if (!accessToken) return null;
+  if (!accessToken) {
+    console.error("[getAuthedClient] accessToken vazio/ausente");
+    return null;
+  }
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    console.error("[getAuthedClient] SUPABASE_URL ou SUPABASE_PUBLISHABLE_KEY não configuradas no servidor");
+    return null;
+  }
 
   const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -64,7 +70,10 @@ export async function getAuthedClient(
   });
 
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
-  if (userErr || !userData?.user) return null;
+  if (userErr || !userData?.user) {
+    console.error("[getAuthedClient] getUser falhou:", userErr?.message ?? "sem usuário retornado");
+    return null;
+  }
 
   return { supabase, userId: userData.user.id };
 }
@@ -73,10 +82,19 @@ export async function isAdminAccessToken(accessToken: string | undefined | null)
   const authed = await getAuthedClient(accessToken);
   if (!authed) return false;
 
-  const { data: roles } = await authed.supabase
+  const { data: roles, error } = await authed.supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", authed.userId);
 
-  return (roles ?? []).some((r) => r.role === "admin");
+  if (error) {
+    console.error("[isAdminAccessToken] erro ao consultar user_roles:", error.message);
+    return false;
+  }
+
+  const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+  if (!isAdmin) {
+    console.error(`[isAdminAccessToken] usuário ${authed.userId} não tem role admin. roles encontradas:`, roles);
+  }
+  return isAdmin;
 }
