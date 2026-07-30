@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:\\\\Users\\\\nitro\\\\Downloads\\\\instarrossel-main.zip\" 2>&1; echo \"---\"; ls \"C:\\\\Users\\\\nitro\\\\OneDrive\\\\Documentos\\\\instarrossel\" 2>&1)",
+      "Bash(unzip -o \"C:\\\\Users\\\\nitro\\\\Downloads\\\\instarrossel-main.zip\" -d .)",
+      "Bash(npm -v)",
+      "Bash(bun -v)",
+      "Bash(npm install *)"
+    ]
+  }
+}

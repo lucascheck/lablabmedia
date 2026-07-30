@@ -1,0 +1,1 @@
+ALTER TABLE public.task_cards ADD COLUMN IF NOT EXISTS link text;
