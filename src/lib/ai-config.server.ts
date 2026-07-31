@@ -60,7 +60,11 @@ export async function getAuthedClient(
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    console.error("[getAuthedClient] SUPABASE_URL ou SUPABASE_PUBLISHABLE_KEY não configuradas no servidor");
+    console.error(
+      `[getAuthedClient] faltando env var(s): ${!SUPABASE_URL ? "SUPABASE_URL " : ""}${!SUPABASE_PUBLISHABLE_KEY ? "SUPABASE_PUBLISHABLE_KEY" : ""}`.trim(),
+      "| chaves SUPABASE* visíveis no processo:",
+      Object.keys(process.env).filter((k) => k.includes("SUPABASE")),
+    );
     return null;
   }
 
@@ -97,4 +101,57 @@ export async function isAdminAccessToken(accessToken: string | undefined | null)
     console.error(`[isAdminAccessToken] usuário ${authed.userId} não tem role admin. roles encontradas:`, roles);
   }
   return isAdmin;
+}
+
+/**
+ * Igual a isAdminAccessToken, mas devolve o motivo exato da falha em texto,
+ * pra mostrar direto na tela em vez de precisar olhar os logs do servidor.
+ */
+export async function checkAdminAccessToken(
+  accessToken: string | undefined | null,
+): Promise<{ isAdmin: boolean; reason?: string }> {
+  if (!accessToken) {
+    return { isAdmin: false, reason: "sessão não encontrada (token vazio). Saia e entre de novo." };
+  }
+
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    return {
+      isAdmin: false,
+      reason: "servidor sem SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY configuradas.",
+    };
+  }
+
+  const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
+  if (userErr || !userData?.user) {
+    return {
+      isAdmin: false,
+      reason: `sessão inválida ou expirada (${userErr?.message ?? "sem usuário retornado"}). Saia e entre de novo.`,
+    };
+  }
+
+  const { data: roles, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userData.user.id);
+
+  if (error) {
+    return { isAdmin: false, reason: `erro ao consultar permissões: ${error.message}` };
+  }
+
+  const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+  if (!isAdmin) {
+    return {
+      isAdmin: false,
+      reason: `a conta ${userData.user.email ?? userData.user.id} não tem papel de admin no banco.`,
+    };
+  }
+
+  return { isAdmin: true };
 }
