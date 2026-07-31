@@ -16,10 +16,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import {
   Sparkles, Link2, Loader2, Wand2, AlertTriangle, X, Settings, KeyRound, Check,
-  Gauge, BarChart3, CheckCircle2, XCircle, Zap,
+  Gauge, BarChart3, CheckCircle2, XCircle, Zap, ChevronDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/tools/carousel-creator-ia")({
@@ -258,16 +259,6 @@ function CarouselCreatorIaPage() {
           </TabsList>
 
           <TabsContent value="gerar" className="space-y-0">
-            {aiConfigured === true && !showConfigForm && profile?.isAdmin && (
-              <button
-                onClick={() => setShowConfigForm(true)}
-                className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Check className="h-3.5 w-3.5 text-brand-accent" /> IA configurada (Gemini)
-                <span className="underline">reconfigurar</span>
-              </button>
-            )}
-
             {aiConfigured === false && !profile?.isAdmin && (
               <Card className="p-4 mb-6 flex items-start gap-3 border-brand-gold/40 bg-brand-gold-lightest">
                 <AlertTriangle className="h-4 w-4 text-brand-gold mt-0.5 shrink-0" />
@@ -277,40 +268,56 @@ function CarouselCreatorIaPage() {
               </Card>
             )}
 
-            {(showConfigForm || (aiConfigured === false && profile?.isAdmin)) && (
-              <Card className="p-6 mb-6 space-y-4 border-brand-light">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg bg-brand-uplift flex items-center justify-center shrink-0">
-                    <KeyRound className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Configurar IA (Google Gemini)</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Crie uma chave gratuita em{" "}
-                      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline text-brand-accent">
-                        aistudio.google.com/apikey
-                      </a>{" "}
-                      e cole abaixo. Fica salva só no servidor.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    placeholder="Cole sua GEMINI_API_KEY aqui"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    disabled={savingKey}
-                  />
-                  <Button onClick={handleSaveKey} disabled={savingKey || !apiKeyInput.trim()}>
-                    {savingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
-                    Salvar
-                  </Button>
-                  {aiConfigured === true && (
-                    <Button variant="ghost" onClick={() => setShowConfigForm(false)}>Cancelar</Button>
-                  )}
-                </div>
-              </Card>
+            {profile?.isAdmin && (
+              <Collapsible open={showConfigForm} onOpenChange={setShowConfigForm} className="mb-6">
+                <Card className="border-brand-light overflow-hidden">
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-accent/40 transition-colors">
+                      <span className="inline-flex items-center gap-2 text-sm font-medium">
+                        {aiConfigured ? (
+                          <Check className="h-3.5 w-3.5 text-brand-accent shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-3.5 w-3.5 text-brand-gold shrink-0" />
+                        )}
+                        Configuração de IA (Google Gemini)
+                        <span className="text-xs text-muted-foreground font-normal">
+                          {aiConfigured ? "configurada" : "não configurada"} · admin
+                        </span>
+                      </span>
+                      <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${showConfigForm ? "rotate-180" : ""}`} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-brand-uplift flex items-center justify-center shrink-0">
+                          <KeyRound className="h-4 w-4 text-white" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Crie uma chave gratuita em{" "}
+                          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline text-brand-accent">
+                            aistudio.google.com/apikey
+                          </a>{" "}
+                          e cole abaixo. Fica salva só no servidor.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          type="password"
+                          placeholder="Cole sua GEMINI_API_KEY aqui"
+                          value={apiKeyInput}
+                          onChange={(e) => setApiKeyInput(e.target.value)}
+                          disabled={savingKey}
+                        />
+                        <Button onClick={handleSaveKey} disabled={savingKey || !apiKeyInput.trim()}>
+                          {savingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
+                          Salvar
+                        </Button>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             )}
 
             <Card className="p-6 space-y-5">
