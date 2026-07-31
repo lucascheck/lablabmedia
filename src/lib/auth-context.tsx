@@ -22,11 +22,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) {
+          // Sessão salva no navegador ficou inválida (ex: token de um projeto
+          // Supabase antigo). Limpa em vez de deixar a tela travada carregando.
+          console.error("[auth] sessão inválida, limpando:", error.message);
+          void supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          return;
+        }
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      })
+      .catch((err) => {
+        console.error("[auth] erro ao recuperar sessão:", err);
+        setSession(null);
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
 
     return () => sub.subscription.unsubscribe();
   }, []);
