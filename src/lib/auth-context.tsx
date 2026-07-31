@@ -17,34 +17,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      setLoading(false);
+    };
+
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       setUser(s?.user ?? null);
     });
 
+    // getSession() só lê o localStorage — não garante que o token ainda é
+    // válido pra este projeto Supabase (ex: sessão de antes de trocarmos as
+    // env vars). Rede lenta/travada num cenário assim não deve travar a UI
+    // pra sempre, então há um timeout de segurança que libera a tela mesmo
+    // se nada resolver a tempo.
+    const safetyTimeout = setTimeout(() => {
+      console.error("[auth] getSession/getUser demorou demais, liberando a tela");
+      finish();
+    }, 6000);
+
     supabase.auth
       .getSession()
-      .then(({ data, error }) => {
-        if (error) {
-          // Sessão salva no navegador ficou inválida (ex: token de um projeto
-          // Supabase antigo). Limpa em vez de deixar a tela travada carregando.
-          console.error("[auth] sessão inválida, limpando:", error.message);
-          void supabase.auth.signOut();
+      .then(async ({ data, error }) => {
+        if (error || !data.session) {
+          if (error) console.error("[auth] sessão inválida, limpando:", error.message);
           setSession(null);
           setUser(null);
           return;
         }
+
+        // getUser() valida o token contra o servidor (não confia só no que
+        // está no localStorage).
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !userData.user) {
+          console.error("[auth] sessão local inválida para este projeto, limpando:", userErr?.message);
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          return;
+        }
+
         setSession(data.session);
-        setUser(data.session?.user ?? null);
+        setUser(userData.user);
       })
       .catch((err) => {
         console.error("[auth] erro ao recuperar sessão:", err);
         setSession(null);
         setUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(safetyTimeout);
+        finish();
+      });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
