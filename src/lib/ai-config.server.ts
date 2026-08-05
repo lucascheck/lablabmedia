@@ -111,7 +111,7 @@ export async function isAdminAccessToken(accessToken: string | undefined | null)
  */
 export async function checkAdminAccessToken(
   accessToken: string | undefined | null,
-): Promise<{ isAdmin: boolean; reason?: string }> {
+): Promise<{ isAdmin: boolean; reason?: string; userId?: string }> {
   if (!accessToken) {
     return { isAdmin: false, reason: "sessão não encontrada (token vazio). Saia e entre de novo." };
   }
@@ -155,5 +155,5 @@ export async function checkAdminAccessToken(
     };
   }
 
-  return { isAdmin: true };
+  return { isAdmin: true, userId: userData.user.id };
 }

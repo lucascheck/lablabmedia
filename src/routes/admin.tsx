@@ -2,19 +2,23 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/lib/use-profile";
-import { createUser } from "@/lib/admin-users.functions";
+import { createUser, deleteUser } from "@/lib/admin-users.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ShieldCheck, ShieldOff, Check, X, Shield, UserPlus } from "lucide-react";
+import { Loader2, ShieldCheck, ShieldOff, Check, X, Shield, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -33,12 +37,14 @@ function AdminPage() {
   const { profile, loading: profLoading } = useProfile();
   const navigate = useNavigate();
   const createUserFn = useServerFn(createUser);
+  const deleteUserFn = useServerFn(deleteUser);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profLoading && profile && !profile.isAdmin) {
@@ -101,6 +107,20 @@ function AdminPage() {
     setCreateOpen(false);
     setNewEmail("");
     setNewPassword("");
+    load();
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    setDeletingId(id);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token ?? "";
+    const result = await deleteUserFn({ data: { accessToken, userId: id } });
+    setDeletingId(null);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Usuário excluído");
     load();
   };
 
@@ -224,6 +244,33 @@ function AdminPage() {
                       {r.isAdmin ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
                       {r.isAdmin ? "Remover admin" : "Tornar admin"}
                     </Button>
+                    {r.id !== profile.id && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={deletingId === r.id}>
+                            {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir {r.email}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Isso apaga a conta e o acesso dessa pessoa direto do banco de dados (login, perfil e
+                              cargos). Não pode ser desfeito.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteUser(r.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
