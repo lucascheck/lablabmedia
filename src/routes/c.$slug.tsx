@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSignedUrls } from "@/lib/storage";
 import { InstagramMockup } from "@/components/instagram-mockup";
+import { useSlideSwipe } from "@/lib/use-slide-swipe";
 import type { CarouselData } from "@/types/carousel";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +89,19 @@ function PublicCarouselPage() {
     })();
   }, [slug]);
 
+  // Derivado antes dos retornos antecipados porque o hook de swipe abaixo não
+  // pode ser chamado condicionalmente.
+  const carousel = (row?.project_data ?? null) as CarouselData | null;
+  const templateSlides = carousel?.slides ?? [];
+  const hasTemplateSlides = templateSlides.length > 0;
+
+  const swipe = useSlideSwipe({
+    index,
+    total: templateSlides.length,
+    onIndexChange: setIndex,
+    width: DISPLAY_WIDTH,
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -105,10 +119,6 @@ function PublicCarouselPage() {
       </div>
     );
   }
-
-  const carousel = row.project_data as CarouselData | null;
-  const templateSlides = carousel?.slides ?? [];
-  const hasTemplateSlides = templateSlides.length > 0;
 
   if (!hasTemplateSlides) {
     const mockupSlides = imageSlides.filter((s) => s.url).map((s) => ({ id: s.id, url: s.url! }));
@@ -184,10 +194,19 @@ function PublicCarouselPage() {
           </div>
 
           <div
-            className="relative bg-neutral-100 overflow-hidden"
-            style={{ width: DISPLAY_WIDTH, height: SLIDE_HEIGHT * SCALE }}
+            className="relative bg-neutral-100 overflow-hidden touch-pan-y"
+            style={{ width: DISPLAY_WIDTH, height: SLIDE_HEIGHT * SCALE, touchAction: "pan-y" }}
+            {...swipe.handlers}
           >
-            <div style={{ width: SLIDE_WIDTH, height: SLIDE_HEIGHT, transform: `scale(${SCALE})`, transformOrigin: "top left" }}>
+            <div
+              style={{
+                width: SLIDE_WIDTH,
+                height: SLIDE_HEIGHT,
+                transform: `scale(${SCALE}) translateX(${swipe.dragDx / SCALE}px)`,
+                transformOrigin: "top left",
+                transition: swipe.dragging ? "none" : "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              }}
+            >
               <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-muted" />}>
                 {currentSlide && (
                   <SlideRenderer

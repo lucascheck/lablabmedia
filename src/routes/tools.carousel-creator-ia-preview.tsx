@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { Suspense, lazy, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
+import { useSlideSwipe } from "@/lib/use-slide-swipe";
 import type { CarouselData } from "@/types/carousel";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,13 +44,14 @@ function CarouselIaPreviewPage() {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (!search.id) return;
+    const carouselId = search.id;
+    if (!carouselId) return;
     (async () => {
       setFetching(true);
       const { data, error } = await supabase
         .from("carousels")
         .select("project_data")
-        .eq("id", search.id)
+        .eq("id", carouselId)
         .maybeSingle();
       if (error || !data?.project_data) {
         toast.error("Não foi possível carregar esse carrossel");
@@ -59,6 +61,13 @@ function CarouselIaPreviewPage() {
       setFetching(false);
     })();
   }, [search.id]);
+
+  const swipe = useSlideSwipe({
+    index,
+    total: carousel?.slides?.length ?? 0,
+    onIndexChange: setIndex,
+    width: DISPLAY_WIDTH,
+  });
 
   const handleDelete = async () => {
     if (!search.id) return;
@@ -124,10 +133,19 @@ function CarouselIaPreviewPage() {
           </div>
 
           <div
-            className="relative bg-neutral-100 overflow-hidden"
-            style={{ width: DISPLAY_WIDTH, height: SLIDE_HEIGHT * SCALE }}
+            className="relative bg-neutral-100 overflow-hidden touch-pan-y"
+            style={{ width: DISPLAY_WIDTH, height: SLIDE_HEIGHT * SCALE, touchAction: "pan-y" }}
+            {...swipe.handlers}
           >
-            <div style={{ width: SLIDE_WIDTH, height: SLIDE_HEIGHT, transform: `scale(${SCALE})`, transformOrigin: "top left" }}>
+            <div
+              style={{
+                width: SLIDE_WIDTH,
+                height: SLIDE_HEIGHT,
+                transform: `scale(${SCALE}) translateX(${swipe.dragDx / SCALE}px)`,
+                transformOrigin: "top left",
+                transition: swipe.dragging ? "none" : "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              }}
+            >
               <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-muted" />}>
                 {currentSlide && (
                   <SlideRenderer
