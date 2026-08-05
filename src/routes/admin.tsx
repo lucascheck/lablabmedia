@@ -2,12 +2,19 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/lib/use-profile";
+import { createUser } from "@/lib/admin-users.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShieldCheck, ShieldOff, Check, X, Shield } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, ShieldCheck, ShieldOff, Check, X, Shield, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
@@ -25,8 +32,13 @@ type Row = {
 function AdminPage() {
   const { profile, loading: profLoading } = useProfile();
   const navigate = useNavigate();
+  const createUserFn = useServerFn(createUser);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!profLoading && profile && !profile.isAdmin) {
@@ -69,6 +81,29 @@ function AdminPage() {
     load();
   };
 
+  const handleCreateUser = async () => {
+    if (!newEmail.trim() || newPassword.length < 6) {
+      toast.error("Preencha o email e uma senha com no mínimo 6 caracteres");
+      return;
+    }
+    setCreating(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token ?? "";
+    const result = await createUserFn({
+      data: { accessToken, email: newEmail.trim(), password: newPassword },
+    });
+    setCreating(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Usuário criado e já aprovado");
+    setCreateOpen(false);
+    setNewEmail("");
+    setNewPassword("");
+    load();
+  };
+
   if (profLoading || !profile?.isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -79,14 +114,66 @@ function AdminPage() {
 
   return (
     <div className="container max-w-6xl py-8 px-4 space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-brand-starbucks to-brand-accent flex items-center justify-center">
-          <Shield className="h-5 w-5 text-white" />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-brand-starbucks to-brand-accent flex items-center justify-center">
+            <Shield className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-[-0.01em]">Admin</h1>
+            <p className="text-sm text-muted-foreground">Gerencie usuários e aprovações de acesso</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-[-0.01em]">Admin</h1>
-          <p className="text-sm text-muted-foreground">Gerencie usuários e aprovações de acesso</p>
-        </div>
+
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Criar usuário
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar novo usuário</DialogTitle>
+              <DialogDescription>
+                Cria a conta direto e já libera o acesso (sem precisar de aprovação nem confirmação por email).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-user-email">Email</Label>
+                <Input
+                  id="new-user-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  disabled={creating}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-user-password">Senha inicial</Label>
+                <Input
+                  id="new-user-password"
+                  type="text"
+                  minLength={6}
+                  placeholder="Mínimo 6 caracteres"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={creating}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Compartilhe essa senha com a pessoa — ela pode trocá-la depois de entrar.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleCreateUser} disabled={creating}>
+                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Criar usuário
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="overflow-hidden">

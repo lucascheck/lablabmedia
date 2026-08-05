@@ -11,7 +11,7 @@ let serviceClient: SupabaseClient<Database> | null = null;
  * configurações da IA (chave, limites) numa tabela que nenhum usuário
  * autenticado consegue ler direto pela API do Supabase.
  */
-function getServiceClient(): SupabaseClient<Database> | null {
+export function getServiceClient(): SupabaseClient<Database> | null {
   if (serviceClient) return serviceClient;
   // .trim() protege contra espaço/tab/quebra de linha colado por engano no
   // valor da env var na Vercel — isso quebra os headers HTTP das chamadas.
