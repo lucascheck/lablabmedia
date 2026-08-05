@@ -69,9 +69,15 @@ export function InstagramMockup({
   const pointerId = useRef<number | null>(null);
   const axisLocked = useRef<"none" | "x" | "y">("none");
   const widthRef = useRef(0);
+  // Flags em ref, não em state: num flick rápido os eventos chegam antes do
+  // React re-renderizar, e um guard baseado em state descartaria o gesto.
+  const active = useRef(false);
+  const dxRef = useRef(0);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (total <= 1) return;
+    active.current = true;
+    dxRef.current = 0;
     pointerId.current = e.pointerId;
     startX.current = e.clientX;
     startY.current = e.clientY;
@@ -82,7 +88,7 @@ export function InstagramMockup({
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragging || pointerId.current !== e.pointerId) return;
+    if (!active.current || pointerId.current !== e.pointerId) return;
     const dx = e.clientX - startX.current;
     const dy = e.clientY - startY.current;
 
@@ -107,17 +113,21 @@ export function InstagramMockup({
       // extra resistance at edges
       if (idx === 0 && next > 0) next = next * 0.35;
       if (idx === total - 1 && next < 0) next = next * 0.35;
+      dxRef.current = next;
       setDragDx(next);
     }
   };
 
   const endDrag = () => {
-    if (!dragging) return;
+    if (!active.current) return;
     const w = widthRef.current || 1;
     const threshold = Math.min(80, w * 0.18);
+    const dx = dxRef.current;
     let target = idx;
-    if (dragDx <= -threshold) target = idx + 1;
-    else if (dragDx >= threshold) target = idx - 1;
+    if (dx <= -threshold) target = idx + 1;
+    else if (dx >= threshold) target = idx - 1;
+    active.current = false;
+    dxRef.current = 0;
     setDragging(false);
     setDragDx(0);
     pointerId.current = null;
