@@ -13,8 +13,10 @@ let serviceClient: SupabaseClient<Database> | null = null;
  */
 function getServiceClient(): SupabaseClient<Database> | null {
   if (serviceClient) return serviceClient;
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // .trim() protege contra espaço/tab/quebra de linha colado por engano no
+  // valor da env var na Vercel — isso quebra os headers HTTP das chamadas.
+  const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
+  const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return null;
   serviceClient = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -57,8 +59,8 @@ export async function getAuthedClient(
     console.error("[getAuthedClient] accessToken vazio/ausente");
     return null;
   }
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
+  const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     console.error(
       `[getAuthedClient] faltando env var(s): ${!SUPABASE_URL ? "SUPABASE_URL " : ""}${!SUPABASE_PUBLISHABLE_KEY ? "SUPABASE_PUBLISHABLE_KEY" : ""}`.trim(),
@@ -114,8 +116,8 @@ export async function checkAdminAccessToken(
     return { isAdmin: false, reason: "sessão não encontrada (token vazio). Saia e entre de novo." };
   }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
+  const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     return {
       isAdmin: false,
